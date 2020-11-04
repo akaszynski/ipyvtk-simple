@@ -223,10 +223,6 @@ class ViewInteractiveWidget(Canvas):
     def _update_canvas(self, force_render=False):            
         self.put_image_data(self.get_image(force_render=force_render))
 
-    # @threaded
-    # def _put_image_data(self, data):
-    #     self.put_image_data(data)
-
     @timed
     def update_interactor_event_data(self, event):
         try:
@@ -271,6 +267,7 @@ class ViewInteractiveWidget(Canvas):
 
                 self.last_mouse_move_event = event
                 if not self.dragging and not self.track_mouse_move:
+                    self.fill_circle(event['offsetX'], event['offsetY'], 5)
                     return
                 if self.adaptive_render_delay:
                     ageOfProcessedMessage = time.time() - (
