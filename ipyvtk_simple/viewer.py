@@ -95,7 +95,7 @@ class ViewInteractiveWidget(Canvas):
         # Set the throttle or debounce time in millseconds (must be an non-negative integer)
         # See https://github.com/mwcraig/ipyevents/pull/55
         self.interaction_events.throttle_or_debounce = "throttle"
-        self.interaction_events.wait = 1000
+        self.interaction_events.wait = INTERACTION_THROTTLE
         self.interaction_events.source = self
 
         allowed_events = [
@@ -168,7 +168,8 @@ class ViewInteractiveWidget(Canvas):
     @timed
     def get_image(self, force_render=True):
         if force_render:
-            self.render_window.Render()
+            # self.render_window.Render()
+            pass
         return self._fast_image
 
     @property
@@ -185,7 +186,10 @@ class ViewInteractiveWidget(Canvas):
         if self.transparent_background:
             return data
         else:  # ignore alpha channel
-            return data[:, :, :-1]
+            # we're sending all the data as they convert to a binary
+            # image "under the hood in ipycanvas.utils
+            data[:, :, -1] = 255
+            return data
 
     @throttle(0.1)
     @timed
