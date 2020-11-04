@@ -131,6 +131,8 @@ class ViewInteractiveWidget(Canvas):
         self.elapsed_times = []
         self.age_of_processed_messages = []
 
+        # self.timed_render()
+
     @property
     def render_window(self):
         """reference the weak reference"""
@@ -138,6 +140,17 @@ class ViewInteractiveWidget(Canvas):
         if ren_win is None:
             raise RuntimeError('VTK render window has closed')
         return ren_win
+
+    # @threaded
+    # def timed_render(self):
+    #     while True:
+    #         time.sleep(0.2)
+    #         try:
+    #             self.full_render()
+    #             self._log.append('done')
+    #         except Exception as e:
+    #             self._log.append(str(e))
+        
 
     # @property
     # @timed
@@ -198,7 +211,7 @@ class ViewInteractiveWidget(Canvas):
     @timed
     def quick_render(self):
         try:
-            self._send_pending_mouse_move_event()
+            self.send_pending_mouse_move_event()
             self._update_canvas(False)
             if self.log_events:
                 self.elapsed_times.append(time.time() - self.last_render_time)
@@ -207,16 +220,16 @@ class ViewInteractiveWidget(Canvas):
             self.error = str(e)
 
     @timed
+    @threaded
     def _update_canvas(self, force_render=False):
-        self._put_image_data(self.get_image(force_render=force_render))
+        if not self._updating:
+            self._updating = True
+            self.put_image_data(self.get_image(force_render=force_render))
+            self._updating = False
 
-    @threaded
-    def _put_image_data(self, data):
-        self.put_image_data(data)
-
-    @threaded
-    def _send_pending_mouse_move_event(self):
-        self.send_pending_mouse_move_event()
+    # @threaded
+    # def _put_image_data(self, data):
+    #     self.put_image_data(data)
 
     @timed
     def update_interactor_event_data(self, event):
@@ -291,7 +304,7 @@ class ViewInteractiveWidget(Canvas):
                 self.last_mouse_move_event = None
             elif event_name == "mousedown":
                 self.dragging = True
-                self._send_pending_mouse_move_event()
+                self.send_pending_mouse_move_event()
                 self.update_interactor_event_data(event)
                 if event["button"] == 0:
                     self.interactor.LeftButtonPressEvent()
@@ -301,7 +314,7 @@ class ViewInteractiveWidget(Canvas):
                     self.interactor.MiddleButtonPressEvent()
                 self.full_render()
             elif event_name == "mouseup":
-                self._send_pending_mouse_move_event()
+                self.send_pending_mouse_move_event()
                 self.update_interactor_event_data(event)
                 if event["button"] == 0:
                     self.interactor.LeftButtonReleaseEvent()
@@ -312,7 +325,7 @@ class ViewInteractiveWidget(Canvas):
                 self.dragging = False
                 self.full_render()
             elif event_name == "keydown":
-                self._send_pending_mouse_move_event()
+                self.send_pending_mouse_move_event()
                 self.update_interactor_event_data(event)
                 self.interactor.KeyPressEvent()
                 self.interactor.CharEvent()
@@ -323,7 +336,7 @@ class ViewInteractiveWidget(Canvas):
                 ):
                     self.full_render()
             elif event_name == "keyup":
-                self._send_pending_mouse_move_event()
+                self.send_pending_mouse_move_event()
                 self.update_interactor_event_data(event)
                 self.interactor.KeyReleaseEvent()
                 if (
@@ -334,7 +347,7 @@ class ViewInteractiveWidget(Canvas):
                     self.full_render()
             elif event_name == 'wheel':
                 if 'wheel' in self.interaction_events.watched_events:
-                    self._send_pending_mouse_move_event()
+                    self.send_pending_mouse_move_event()
                     self.update_interactor_event_data(event)
                     if event['deltaY'] < 0:
                         self.interactor.MouseWheelForwardEvent()
