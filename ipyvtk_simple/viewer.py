@@ -198,7 +198,7 @@ class ViewInteractiveWidget(Canvas):
     @timed
     def quick_render(self):
         try:
-            self.send_pending_mouse_move_event()
+            self._send_pending_mouse_move_event()
             self._update_canvas(False)
             if self.log_events:
                 self.elapsed_times.append(time.time() - self.last_render_time)
@@ -213,6 +213,10 @@ class ViewInteractiveWidget(Canvas):
     @threaded
     def _put_image_data(self, data):
         self.put_image_data(data)
+
+    @threaded
+    def _send_pending_mouse_move_event(self):
+        self.send_pending_mouse_move_event()
 
     @timed
     def update_interactor_event_data(self, event):
@@ -287,7 +291,7 @@ class ViewInteractiveWidget(Canvas):
                 self.last_mouse_move_event = None
             elif event_name == "mousedown":
                 self.dragging = True
-                self.send_pending_mouse_move_event()
+                self._send_pending_mouse_move_event()
                 self.update_interactor_event_data(event)
                 if event["button"] == 0:
                     self.interactor.LeftButtonPressEvent()
@@ -297,7 +301,7 @@ class ViewInteractiveWidget(Canvas):
                     self.interactor.MiddleButtonPressEvent()
                 self.full_render()
             elif event_name == "mouseup":
-                self.send_pending_mouse_move_event()
+                self._send_pending_mouse_move_event()
                 self.update_interactor_event_data(event)
                 if event["button"] == 0:
                     self.interactor.LeftButtonReleaseEvent()
@@ -308,7 +312,7 @@ class ViewInteractiveWidget(Canvas):
                 self.dragging = False
                 self.full_render()
             elif event_name == "keydown":
-                self.send_pending_mouse_move_event()
+                self._send_pending_mouse_move_event()
                 self.update_interactor_event_data(event)
                 self.interactor.KeyPressEvent()
                 self.interactor.CharEvent()
@@ -319,7 +323,7 @@ class ViewInteractiveWidget(Canvas):
                 ):
                     self.full_render()
             elif event_name == "keyup":
-                self.send_pending_mouse_move_event()
+                self._send_pending_mouse_move_event()
                 self.update_interactor_event_data(event)
                 self.interactor.KeyReleaseEvent()
                 if (
@@ -330,7 +334,7 @@ class ViewInteractiveWidget(Canvas):
                     self.full_render()
             elif event_name == 'wheel':
                 if 'wheel' in self.interaction_events.watched_events:
-                    self.send_pending_mouse_move_event()
+                    self._send_pending_mouse_move_event()
                     self.update_interactor_event_data(event)
                     if event['deltaY'] < 0:
                         self.interactor.MouseWheelForwardEvent()
