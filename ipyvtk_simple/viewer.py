@@ -11,9 +11,12 @@ import time
 import logging
 import weakref
 from threading import Thread
+from io import BytesIO
+import PIL.Image
 
 from ipycanvas import Canvas
 from ipyevents import Event
+from ipywidgets import Image
 import numpy as np
 
 from .constants import INTERACTION_THROTTLE, KEY_TO_SYM
@@ -168,8 +171,7 @@ class ViewInteractiveWidget(Canvas):
     @timed
     def get_image(self, force_render=True):
         if force_render:
-            # self.render_window.Render()
-            pass
+            self.render_window.Render()
         return self._fast_image
 
     @property
@@ -224,8 +226,15 @@ class ViewInteractiveWidget(Canvas):
             self.error = str(e)
 
     @timed
-    def _update_canvas(self, force_render=False):            
-        self.put_image_data(self.get_image(force_render=force_render))
+    def _update_canvas(self, force_render=False):
+        raw_img = self.get_image(force_render=force_render)
+        f = BytesIO()
+        PIL.Image.fromarray(raw_img).save(f, 'png')
+        image = Image(
+            value=f.getvalue(), width=self.width, height=self.height
+        )
+        self.draw_image(image)
+        # self.put_image_data(raw_img)
 
     @timed
     def update_interactor_event_data(self, event):
@@ -290,7 +299,7 @@ class ViewInteractiveWidget(Canvas):
                 # We need to render something now it no rendering
                 # since self.quick_render_delay_sec
                 if time.time() - self.last_render_time > self.quick_render_delay_sec:
-                    self.fill_circle(event['offsetX'], event['offsetY'], 5)
+                    # self.fill_circle(event['offsetX'], event['offsetY'], 5)
                     self.quick_render()
             elif event_name == "mouseenter":
                 self.update_interactor_event_data(event)
