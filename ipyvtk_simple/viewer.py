@@ -267,7 +267,7 @@ class ViewInteractiveWidget(Canvas):
 
                 self.last_mouse_move_event = event
                 if not self.dragging and not self.track_mouse_move:
-                    self.fill_circle(event['offsetX'], event['offsetY'], 5)
+                    # self.fill_circle(event['offsetX'], event['offsetY'], 5)
                     return
                 if self.adaptive_render_delay:
                     ageOfProcessedMessage = time.time() - (
@@ -286,6 +286,7 @@ class ViewInteractiveWidget(Canvas):
                 # We need to render something now it no rendering
                 # since self.quick_render_delay_sec
                 if time.time() - self.last_render_time > self.quick_render_delay_sec:
+                    self.fill_circle(event['offsetX'], event['offsetY'], 5)
                     self.quick_render()
             elif event_name == "mouseenter":
                 self.update_interactor_event_data(event)
