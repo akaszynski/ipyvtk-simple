@@ -95,7 +95,7 @@ class ViewInteractiveWidget(Canvas):
         # Set the throttle or debounce time in millseconds (must be an non-negative integer)
         # See https://github.com/mwcraig/ipyevents/pull/55
         self.interaction_events.throttle_or_debounce = "throttle"
-        self.interaction_events.wait = INTERACTION_THROTTLE
+        self.interaction_events.wait = 1000
         self.interaction_events.source = self
 
         allowed_events = [
