@@ -208,7 +208,11 @@ class ViewInteractiveWidget(Canvas):
 
     @timed
     def _update_canvas(self, force_render=False):
-        self.put_image_data(self.get_image(force_render=force_render))
+        self._put_image_data(self.get_image(force_render=force_render))
+
+    @threaded
+    def _put_image_data(self, data):
+        self.put_image_data(data)
 
     @timed
     def update_interactor_event_data(self, event):
