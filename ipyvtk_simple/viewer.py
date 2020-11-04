@@ -56,6 +56,7 @@ class ViewInteractiveWidget(Canvas):
 
         self._log = []
         super().__init__(**kwargs)
+        self._updating = False
 
         self._render_window = weakref.ref(render_window)
         self.interactor = self.render_window.GetInteractor()
