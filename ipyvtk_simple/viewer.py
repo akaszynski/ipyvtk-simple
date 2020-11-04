@@ -10,6 +10,7 @@ Source:
 import time
 import logging
 import weakref
+from threading import Thread
 
 from ipycanvas import Canvas
 from ipyevents import Event
@@ -24,6 +25,26 @@ log.setLevel("CRITICAL")
 log.addHandler(logging.StreamHandler())
 
 
+def threaded(fn):
+    """ calls a function using a thread """
+    def wrapper(*args, **kwargs):
+        thread = Thread(target=fn, args=args, kwargs=kwargs)
+        thread.start()
+        return thread
+    return wrapper
+
+
+def timed(fn):
+    """ calls a function using a thread """
+    def wrapper(*args, **kwargs):
+        tstart = time.time()
+        out = fn(*args, **kwargs)
+        telap = (time.time() - tstart)*1000
+        args[0]._log.append('%s in %f msec' %(fn.__name__,  telap))
+        return out
+    return wrapper
+
+
 class ViewInteractiveWidget(Canvas):
     """Remote controller for VTK render windows."""
 
@@ -31,9 +52,11 @@ class ViewInteractiveWidget(Canvas):
                  transparent_background=False, allow_wheel=True, **kwargs):
         """Accepts a vtkRenderWindow."""
 
+        self._log = []
         super().__init__(**kwargs)
 
         self._render_window = weakref.ref(render_window)
+        self.interactor = self.render_window.GetInteractor()
         self.render_window.SetOffScreenRendering(1)  # Force off screen
         self.transparent_background = transparent_background
 
@@ -92,7 +115,7 @@ class ViewInteractiveWidget(Canvas):
 
         self.interaction_events.watched_events = allowed_events
 
-        # self.interaction_events.msg_throttle = 1  # does not seem to have effect
+        self.interaction_events.msg_throttle = 1  # does not seem to have effect
         self.interaction_events.prevent_default_action = True
         self.interaction_events.on_dom_event(self.handle_interaction_event)
 
@@ -114,10 +137,12 @@ class ViewInteractiveWidget(Canvas):
             raise RuntimeError('VTK render window has closed')
         return ren_win
 
-    @property
-    def interactor(self):
-        return self.render_window.GetInteractor()
+    # @property
+    # @timed
+    # def interactor(self):
+    #     return self.render_window.GetInteractor()
 
+    @timed
     def set_quick_render_delay(self, delay_sec):
         if delay_sec < self.quick_render_delay_sec_range[0]:
             delay_sec = self.quick_render_delay_sec_range[0]
@@ -125,12 +150,14 @@ class ViewInteractiveWidget(Canvas):
             delay_sec = self.quick_render_delay_sec_range[1]
         self.quick_render_delay_sec = delay_sec
 
+    @timed
     def get_image(self, force_render=True):
         if force_render:
             self.render_window.Render()
         return self._fast_image
 
     @property
+    @timed
     def _fast_image(self):
         import vtk.util.numpy_support as nps
         import vtk
@@ -146,16 +173,19 @@ class ViewInteractiveWidget(Canvas):
             return data[:, :, :-1]
 
     @throttle(0.1)
+    @timed
     def full_render(self):
         try:
             import time
             tstart = time.time()
-            self.put_image_data(self.get_image(force_render=True))
+            # self.put_image_data(self.get_image(force_render=True))
+            self._update_canvas(True)
             self.last_render_time = time.time()
             log.debug('full render in %.5f seconds', time.time() - tstart)
         except Exception as e:
             self.error = str(e)
 
+    @timed
     def send_pending_mouse_move_event(self):
         if self.last_mouse_move_event is not None:
             self.update_interactor_event_data(self.last_mouse_move_event)
@@ -163,16 +193,22 @@ class ViewInteractiveWidget(Canvas):
             self.last_mouse_move_event = None
 
     @throttle(0.01)
+    @timed
     def quick_render(self):
         try:
             self.send_pending_mouse_move_event()
-            self.put_image_data(self.get_image(force_render=False))
+            self._update_canvas(False)
             if self.log_events:
                 self.elapsed_times.append(time.time() - self.last_render_time)
             self.last_render_time = time.time()
         except Exception as e:
             self.error = str(e)
 
+    @timed
+    def _update_canvas(self, force_render=False):
+        self.put_image_data(self.get_image(force_render=force_render))
+
+    @timed
     def update_interactor_event_data(self, event):
         try:
             if event["event"] == "keydown" or event["event"] == "keyup":
@@ -192,6 +228,7 @@ class ViewInteractiveWidget(Canvas):
         except Exception as e:
             self.error = str(e)
 
+    @timed
     def handle_interaction_event(self, event):
         event_name = event["event"]
 
@@ -208,7 +245,6 @@ class ViewInteractiveWidget(Canvas):
             if self.log_events:
                 self.logged_events.append(event)
             if event_name == "mousemove":
-
                 if self.message_timestamp_offset is None:
                     self.message_timestamp_offset = (
                         time.time() - event["timeStamp"] * 0.001
