@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 log.setLevel("CRITICAL")
 log.addHandler(logging.StreamHandler())
 
+gstart = time.time()
 
 def threaded(fn):
     """ calls a function using a thread """
@@ -40,7 +41,8 @@ def timed(fn):
         tstart = time.time()
         out = fn(*args, **kwargs)
         telap = (time.time() - tstart)*1000
-        args[0]._log.append('%s in %f msec' %(fn.__name__,  telap))
+        gelap = (time.time() - gstart)*1000
+        args[0]._log.append('%40s in %8.2f msec at %8.2f' %(fn.__name__,  telap, gelap))
         return out
     return wrapper
 
