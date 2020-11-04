@@ -56,7 +56,6 @@ class ViewInteractiveWidget(Canvas):
 
         self._log = []
         super().__init__(**kwargs)
-        self._updating = False
 
         self._render_window = weakref.ref(render_window)
         self.interactor = self.render_window.GetInteractor()
@@ -221,12 +220,8 @@ class ViewInteractiveWidget(Canvas):
             self.error = str(e)
 
     @timed
-    @threaded
-    def _update_canvas(self, force_render=False):
-        if not self._updating:
-            self._updating = True
-            self.put_image_data(self.get_image(force_render=force_render))
-            self._updating = False
+    def _update_canvas(self, force_render=False):            
+        self.put_image_data(self.get_image(force_render=force_render))
 
     # @threaded
     # def _put_image_data(self, data):
