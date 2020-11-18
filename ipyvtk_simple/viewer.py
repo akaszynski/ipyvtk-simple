@@ -104,6 +104,7 @@ class ViewInteractiveWidget(Canvas):
             "keyup",
             "keydown",
             "contextmenu",  # prevent context menu from appearing on right-click
+            "touch_move"
         ]
 
         # May be disabled out so that user can scroll through the
