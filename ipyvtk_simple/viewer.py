@@ -56,12 +56,17 @@ class ViewInteractiveWidget(Canvas):
         self.render_window.SetOffScreenRendering(1)  # Force off screen
         self.transparent_background = transparent_background
 
+        # track mobile touch start/end
+        self._touching = False
+        self._last_touch = time.time()
+
         # Frame rate (1/renderDelay)
         self.last_render_time = 0
-        self.quick_render_delay_sec = 0.01
-        self.quick_render_delay_sec_range = [0.02, 2.0]
+        self.quick_render_delay_sec = 0.001
+        self.quick_render_delay_sec_range = [0.001, 2.0]
         self.adaptive_render_delay = True
         self.last_mouse_move_event = None
+        self._has_moved = False
 
         # refresh if mouse is just moving (not dragging)
         self.track_mouse_move = False
@@ -79,9 +84,6 @@ class ViewInteractiveWidget(Canvas):
         self.update_canvas()
         self._first_render_time = time.time() - tstart
         log.debug('First image in %.5f seconds', self._first_render_time)
-
-        # this is the minimum time to render anyway
-        self.set_quick_render_delay(self._first_render_time)
 
         self.dragging = False
 
@@ -129,6 +131,66 @@ class ViewInteractiveWidget(Canvas):
             self._on_close = on_close
         else:
             self._on_close = lambda: None
+
+        # register touch callbacks
+        self._stuff = []
+        self.on_touch_start(self._on_touch_start)
+        self.on_touch_end(self._on_touch_end)
+        self.on_touch_move(self._on_touch_move)
+
+
+    def _on_touch_start(self, locs):
+        """Assigned to ``on_touch_start`` event"""
+        self._touching = True
+        # self.dragging = True
+        event = {'event': 'mousedown',
+                 'touch_event': True,
+                 'offsetX': int(locs[0][0]),
+                 'offsetY': int(locs[0][1]),
+                 'timeStamp': time.time(),
+                 # 'boundingRectWidth': last_event['boundingRectWidth'],
+                 # 'boundingRectHeight': last_event['boundingRectHeight'],
+                 "button": 0
+        }
+        self.handle_interaction_event(event)
+
+    def _on_touch_end(self, *args):
+        """Assigned to ``on_touch_end`` event"""
+        event = {'event': 'mouseup',
+                 'touch_event': True,
+                 'timeStamp': time.time(),
+                 # 'boundingRectWidth': last_event['boundingRectWidth'],
+                 # 'boundingRectHeight': last_event['boundingRectHeight'],
+                 "button": 0
+        }
+        self.handle_interaction_event(event)
+        self._touching = False
+
+    # @debounce(0.01)
+    def _on_touch_move(self, locs):
+        """create a touch event and pass that"""
+        self._stuff = locs
+        x, y = locs[0]  # passed as a tuple?
+        # if not self.logged_events:
+        #     return
+
+        # # need ipyevents actual canvas size
+        # last_event = self.logged_events[-1]
+        # if 'boundingRectWidth' not in last_event:
+        #     return
+        if time.time() - self._last_touch < 0.01:
+            return
+
+        self._last_touch = time.time()
+        event = {'event': 'mousemove',
+                 'touch_event': True,
+                 'offsetX': round(x),
+                 'offsetY': round(y),
+                 'timeStamp': time.time(),
+                 # 'boundingRectWidth': last_event['boundingRectWidth'],
+                 # 'boundingRectHeight': last_event['boundingRectHeight'],
+        }
+        self.handle_interaction_event(event)
 
     @property
     def render_window(self):
@@ -220,29 +282,35 @@ class ViewInteractiveWidget(Canvas):
                 self.interactor.SetEventPosition(event["offsetX"],
                                                  self.height - event["offsetY"]
                 )
-            self.interactor.SetShiftKey(event["shiftKey"])
-            self.interactor.SetControlKey(event["ctrlKey"])
-            self.interactor.SetAltKey(event["altKey"])
+            if "shiftKey" in event:
+                self.interactor.SetShiftKey(event["shiftKey"])
+            if "ctrlKey" in event:
+                self.interactor.SetControlKey(event["ctrlKey"])
+            if "altKey" in event:
+                self.interactor.SetAltKey(event["altKey"])
         except Exception as e:
             self.error = str(e)
 
     def handle_interaction_event(self, event):
+        if self.log_events:
+            self.logged_events.append(event)
+
         event_name = event["event"]
 
         # we have to scale the mouse movement here relative to the
         # canvas size, otherwise mouse movement won't correspond to
         # the render window.
-        if 'offsetX' in event:
+        if 'offsetX' in event and 'boundingRectWidth' in event:
             scale_x = self.width/event['boundingRectWidth']
             event['offsetX'] = round(event['offsetX']*scale_x)
             scale_y = self.height/event['boundingRectHeight']
             event['offsetY'] = round(event['offsetY']*scale_y)
 
         try:
-            if self.log_events:
-                self.logged_events.append(event)
-            if event_name == "mousemove":
+            if self._touching and 'touch_event' not in event:
+                return
 
+            if event_name == "mousemove":
                 if self.message_timestamp_offset is None:
                     self.message_timestamp_offset = (
                         time.time() - event["timeStamp"] * 0.001
@@ -251,16 +319,18 @@ class ViewInteractiveWidget(Canvas):
                 self.last_mouse_move_event = event
                 if not self.dragging and not self.track_mouse_move:
                     return
-                if self.adaptive_render_delay:
+                if self.adaptive_render_delay and not self._touching:
                     ageOfProcessedMessage = time.time() - (
                         event["timeStamp"] * 0.001 + self.message_timestamp_offset
                     )
+
                     if ageOfProcessedMessage > 1.5 * self.quick_render_delay_sec:
                         # we are falling behind, try to render less frequently
                         self.set_quick_render_delay(self.quick_render_delay_sec * 1.05)
                     elif ageOfProcessedMessage < 0.5 * self.quick_render_delay_sec:
                         # we can keep up with events, try to render more frequently
                         self.set_quick_render_delay(self.quick_render_delay_sec / 1.05)
+
                     if self.log_events:
                         self.age_of_processed_messages.append(
                             [ageOfProcessedMessage, self.quick_render_delay_sec]
